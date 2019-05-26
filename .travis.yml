@@ -1,0 +1,7 @@
+language: go
+go:
+  - 1.11.4
+before_script:
+  - sudo apt-get install libpcap-dev 
+script:
+  - env GO111MODULE=on go build
