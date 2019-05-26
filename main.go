@@ -15,9 +15,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/fatih/color"
 	"net"
+	"os"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/google/gopacket"
@@ -101,7 +104,7 @@ func scan(iface *net.Interface) error {
 		// We don't know exactly how long it'll take for packets to be
 		// sent back to us, but 10 seconds should be more than enough
 		// time ;)
-		time.Sleep(10 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 }
 
@@ -109,6 +112,8 @@ func scan(iface *net.Interface) error {
 //
 // readARP loops until 'stop' is closed.
 func readARP(handle *pcap.Handle, iface *net.Interface, stop chan struct{}) {
+	color.Yellow("scan")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, '.', tabwriter.AlignRight)
 	src := gopacket.NewPacketSource(handle, layers.LayerTypeEthernet)
 	in := src.Packets()
 	for {
@@ -129,7 +134,9 @@ func readARP(handle *pcap.Handle, iface *net.Interface, stop chan struct{}) {
 			// Note:  we might get some packets here that aren't responses to ones we've sent,
 			// if for example someone else sends US an ARP request.  Doesn't much matter, though...
 			// all information is good information :)
-			color.Green("IP %v is at %v", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
+			fmt.Fprintf(w,"%v\t%v\n", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
+			w.Flush()
+			//color.Green("IP %v is at %v", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
 		}
 	}
 }
