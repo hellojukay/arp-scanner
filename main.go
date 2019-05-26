@@ -15,11 +15,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/fatih/color"
 	"net"
 	"os"
-	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -28,28 +28,25 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
+var ifaceName string
+var debug bool
+
+func init()  {
+	flag.BoolVar(&debug,"debug",false,"print debug log")
+	flag.StringVar(&ifaceName,"iface","eth0","network interface name")
+	flag.Parse()
+}
 func main() {
-	// Get a list of all interfaces.
-	ifaces, err := net.Interfaces()
+
+	iface , err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		panic(err)
+		color.Red("can not get interface %s, %s",ifaceName,err)
+		os.Exit(1)
 	}
 
-	var wg sync.WaitGroup
-	for _, iface := range ifaces {
-		wg.Add(1)
-		// Start up a scan on each interface.
-		go func(iface net.Interface) {
-			defer wg.Done()
-			if err := scan(&iface); err != nil {
-				color.Yellow("interface %v: %v", iface.Name, err)
-			}
-		}(iface)
+	if err := scan(iface); err != nil {
+		color.Yellow("interface %v: %v", ifaceName, err)
 	}
-	// Wait for all interfaces' scans to complete.  They'll try to run
-	// forever, but will stop on an error, so if we get past this Wait
-	// it means all attempts to write have failed.
-	wg.Wait()
 }
 
 // scan scans an individual interface's local network for machines using ARP requests/replies.
@@ -82,8 +79,10 @@ func scan(iface *net.Interface) error {
 	} else if addr.Mask[0] != 0xff || addr.Mask[1] != 0xff {
 		return errors.New("mask means network is too large")
 	}
-	color.Green("Using network range %v for interface %v", addr, iface.Name)
+	if debug {
+		color.Green("Using network range %v for interface %v", addr, iface.Name)
 
+	}
 	// Open up a pcap handle for packet reads/writes.
 	handle, err := pcap.OpenLive(iface.Name, 65536, true, pcap.BlockForever)
 	if err != nil {
@@ -112,8 +111,7 @@ func scan(iface *net.Interface) error {
 //
 // readARP loops until 'stop' is closed.
 func readARP(handle *pcap.Handle, iface *net.Interface, stop chan struct{}) {
-	color.Yellow("scan")
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, '.', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(os.Stdout, 20, 20, 1, ' ', tabwriter.DiscardEmptyColumns)
 	src := gopacket.NewPacketSource(handle, layers.LayerTypeEthernet)
 	in := src.Packets()
 	for {
@@ -134,9 +132,9 @@ func readARP(handle *pcap.Handle, iface *net.Interface, stop chan struct{}) {
 			// Note:  we might get some packets here that aren't responses to ones we've sent,
 			// if for example someone else sends US an ARP request.  Doesn't much matter, though...
 			// all information is good information :)
+
 			fmt.Fprintf(w,"%v\t%v\n", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
 			w.Flush()
-			//color.Green("IP %v is at %v", net.IP(arp.SourceProtAddress), net.HardwareAddr(arp.SourceHwAddress))
 		}
 	}
 }
