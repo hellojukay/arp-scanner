@@ -4,6 +4,7 @@ scan local area network ip and mac address
 [![Build Status](https://travis-ci.org/hellojukay/arp-scanner.svg?branch=master)](https://travis-ci.org/hellojukay/arp-scanner)
 ## Install
 ```shell
+sudo apt-get install libpcap-dev
 go get -u github.com/hellojukay/arp-scanner
 ```
 ## Usage
