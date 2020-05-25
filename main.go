@@ -40,7 +40,11 @@ func main() {
 
 	iface , err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		color.Red("can not get interface %s, %s",ifaceName,err)
+		if ifaceName =="eth0" {
+			color.Red("can not get interface %s, %s - consider using -iface to set interface name",ifaceName,err)
+		} else {
+			color.Red("can not get interface %s, %s",ifaceName,err)
+		}
 		os.Exit(1)
 	}
 
